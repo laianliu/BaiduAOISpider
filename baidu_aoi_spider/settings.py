@@ -17,7 +17,7 @@ DEFAULT_REQUEST_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;"
     "q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
     "Accept-Encoding": "gzip, deflate",
-    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Language": "en-US,en;q=0.9"
 }
 
 # Enable or disable downloader middlewares
@@ -25,6 +25,21 @@ DOWNLOADER_MIDDLEWARES = {
     "scrapy.downloadermiddleware.useragent.UserAgentMiddleware": None,
     "scrapy_fake_useragent.middleware.RandomUserAgentMiddleware": 100,
     "baidu_aoi_spider.middlewares.BaiduAOIMiddleware": 200,
+}
+
+# 数据库配置
+DATABASE = {
+    "drivername": "postgres",
+    "host": "43.139.23.170",
+    "port": "5432",
+    "username": "postgres",
+    "password": "postgres",
+    "database": "postgres",
+}
+
+# 启用自定义的 PostGIS 管道
+ITEM_PIPELINES = {
+    "baidu_aoi_spider.pipelines.BaiduAoiPipeline": 300,
 }
 
 # Retry settings
@@ -36,7 +51,7 @@ RETRY_PRIORITY_ADJUST = -1
 LOG_LEVEL = "WARNING"
 
 # Settings whose default value is deprecated to a future-proof value
-REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
+# REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 
 # ---------------------------------------------------------------------------- #
@@ -62,7 +77,7 @@ POI_CSV_PATH = "data/POI.csv"
 AOI_SHP_PATH = "data/AOI/AOI.shp"
 
 # Spider settings
-PROXY_ENABLED = True
+PROXY_ENABLED = False
 UPDATE_INTERVAL = 150  # how many AOI API calls before updating the output file
 USE_FIRST_UID = False
 
@@ -80,22 +95,22 @@ API_PARAMS = {
     # 1. Primary/Secondary industry classification (Optional)
     # Please re-classify according to Baidu standard:
     # see https://lbsyun.baidu.com/index.php?title=open/poitags
-    "prim_ind": "",  # (1) ''; (2) a string; (3) 'VAR'
+    "prim_ind": "",  # (1) ""; (2) a string; (3) "VAR"
     "sec_ind": "",  # same as above
     # 2.1 Retrieval radius
     # To avoid missing out POIs, it is recommended to set it slightly higher, e.g. 2000.
     "radius": 2000,  # unit: meters
     # 2.2 Radius limit
-    # It is said that only POIs within retrieval radius will be returned if set to 'true'.
-    "radius_limit": "true",  # 'true' or 'false'
+    # It is said that only POIs within retrieval radius will be returned if set to "true".
+    "radius_limit": "true",  # "true" or "false"
     # 3. Coordinate system
-    "crs": "wgs84",  # 'gcj02', 'bd09' or 'wgs84'
+    "crs": "wgs84",  # "gcj02", "bd09" or "wgs84"
 }
 
 # Baidu access key list, you can get it from https://lbsyun.baidu.com/apiconsole/key
 # at least provide one access key
 AK_LIST = [
-    "your aks",
+    "8kkZMMMDBbOnJPn4WgBntQut6FkE99yM",
 ]
 
 # ---------------------------- 4. AOI filter rules --------------------------- #
@@ -109,6 +124,6 @@ FILTER_RULES = {
     # 3. AOI sorting rules, set to 0 to disable
     "sort_by_search_rank": 1,  # the higher the rank, the more relevant, the better
     "sort_by_area": 0,  # 1 for the smaller the better, -1 for the bigger the better
-    "sort_by_distance": 1,  # the closer the AOI's geometry to POI, the better
+    "sort_by_distance": 1,  # the closer the AOI"s geometry to POI, the better
     "sort_by_similarity": 1,  # the more similar the name of AOI to POI, the better
 }

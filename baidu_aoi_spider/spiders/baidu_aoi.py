@@ -11,6 +11,9 @@ from processor import (
     Repo,
     Validator,
 )
+from baidu_aoi_spider.items import BaiduAoiItem
+
+import logging
 
 
 class BaiduAOISpider(scrapy.Spider):
@@ -50,11 +53,13 @@ class BaiduAOISpider(scrapy.Spider):
         Logger.log_start()
         # idx_url_tuples is of the form [(idx1, url1), (idx2, url2), ...]
         idx_url_tuples = APIHandler.assemble_uid_urls()
+        logging.info(f"idx_url_tuples: {idx_url_tuples}")
         for idx, url in idx_url_tuples:
             yield self.request_uid(url, idx=idx)
 
     def parse_uid(self, response, idx):
         try:
+            logging.info(f"Parsing UID for {idx}, response: {response}")
             self.check_retry_times(response)
             # uid_name_rank_triples is of the form:
             # [(uid_name1, uid1, search_rank1), (uid_name2, uid2, search_rank2), ...]
@@ -65,6 +70,7 @@ class BaiduAOISpider(scrapy.Spider):
                 # if `USE_FIRST_UID` is on, only the first search result will be requested
                 for uid_name, uid, rank in uid_name_rank_triples:
                     url = APIHandler.assemble_aoi_url(uid)
+                    logging.warn(f"aoi url: {url}")
                     yield self.request_aoi(url, idx=idx, uid_name=uid_name, rank=rank)
             else:
                 # no uid found, skip this POI
@@ -75,34 +81,44 @@ class BaiduAOISpider(scrapy.Spider):
 
     def parse_aoi(self, response, idx, uid_name, rank):
         try:
-            self.check_retry_times(response)
+            logging.info(f"Parsing AOI for {uid_name} (idx={idx})", idx)
             geometry = APIHandler.get_polygon_geometry(response)
-            # if geometry exists and is valid,
-            # append it to the AOI list of this POI
             if geometry:
-                AOIContainer.append(idx, rank, uid_name, geometry)
+                # 创建 Item 对象并填充数据
+                item = BaiduAoiItem(
+                    idx=idx,
+                    uid_name=uid_name,
+                    rank=rank,
+                    geometry=geometry,
+                    status="Success"
+                )
+                yield item  # 将 Item 传递给 Pipeline
         except Exception as e:
             Logger.log_aoi_fail(e, idx, uid_name)
+            # 处理异常情况，例如标记为失败
+            item = BaiduAoiItem(
+                idx=idx,
+                status="Error: {}".format(str(e))
+            )
+            yield item
         finally:
-            # count that one AOI of this POI is called
+            # 维护计数器和 AOI 容器的逻辑（如需要）
             Counter.count_aoi_called(idx)
-            # if all AOIs of this POI are called,
-            # find the best AOI and record it if exists
             if Counter.all_aoi_called(idx):
+                # 如果需要，仍可在爬虫中选择最佳 AOI
                 best_aoi = AOIContainer.get_best_aoi(idx)
                 if best_aoi:
-                    FileOperator.write_aoi_and_status(idx, best_aoi)
+                    yield best_aoi  # 将最佳 AOI 传递给 Pipeline
                 else:
-                    Repo.file.loc[idx, "status"] = "No Geometry"
-                Logger.log_progress()
-            # update file periodically
-            if Counter.reach_update_interval():
-                FileOperator.save_file()
-                Logger.log_update()
+                    item = BaiduAoiItem(
+                        idx=idx,
+                        status="No Geometry"
+                    )
+                    yield item
 
     def close_spider(self):
         Logger.log_finish()
-        FileOperator.save_file()
+        # FileOperator.save_file()
 
     # ---------------------------------- utility --------------------------------- #
 
@@ -115,6 +131,7 @@ class BaiduAOISpider(scrapy.Spider):
         )
 
     def request_uid(self, url: str, **kwargs) -> Request:
+        logging.info(f"Requesting UID for {kwargs['idx']}")
         params = dict(
             callback=self.parse_uid,
             headers={"Host": "api.map.baidu.com"},

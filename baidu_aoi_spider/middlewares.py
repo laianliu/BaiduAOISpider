@@ -4,6 +4,7 @@ from typing import Optional, Union
 
 import requests
 from scrapy.downloadermiddlewares.retry import RetryMiddleware
+from scrapy.exceptions import NotConfigured
 from scrapy.http.request import Request
 from scrapy.spiders import Spider
 from scrapy.utils.python import global_object_name
@@ -11,15 +12,33 @@ from scrapy.utils.response import response_status_message
 
 
 class BaiduAOIMiddleware(RetryMiddleware):
+    EXCEPTIONS_TO_RETRY = (
+        requests.exceptions.Timeout,
+        requests.exceptions.ConnectionError,
+        requests.exceptions.HTTPError,
+        requests.exceptions.RequestException,
+    )
+
+    def __init__(self, settings):
+        super().__init__(settings)
+        self.proxy_pool_url = "http://127.0.0.1:5010"
+
     def get_proxy(self) -> str:
         """
         proxy pool is built with reference to https://github.com/jhao104/proxy_pool
         """
-        proxy = requests.get("http://127.0.0.1:5000/get/").json()
-        return f'http://{proxy["proxy"]}'
+        try:
+            proxy = requests.get(f"{self.proxy_pool_url}/get/").json()
+            return f'http://{proxy["proxy"]}'
+        except Exception as e:
+            logging.error(f"Failed to get proxy: {str(e)}")
+            return None
 
     def delete_proxy(self, proxy) -> None:
-        requests.get(f"http://127.0.0.1:5000/delete/?proxy={proxy}")
+        try:
+            requests.get(f"{self.proxy_pool_url}/delete/?proxy={proxy}")
+        except Exception as e:
+            logging.error(f"Failed to delete proxy {proxy}: {str(e)}")
 
     def get_cookie(self) -> str:
         """
@@ -39,8 +58,12 @@ class BaiduAOIMiddleware(RetryMiddleware):
     def alter_proxy_and_cookie(self, request):
         request.cookies["BAIDUID"] = self.get_cookie()
         if request.meta.get("proxy_enabled"):
-            self.delete_proxy(request.meta["proxy"])
-            request.meta["proxy"] = self.get_proxy()
+            current_proxy = request.meta.get("proxy")
+            if current_proxy:
+                self.delete_proxy(current_proxy)
+            new_proxy = self.get_proxy()
+            if new_proxy:
+                request.meta["proxy"] = new_proxy
         return request
 
     def process_request(self, request, spider):

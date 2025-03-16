@@ -17,11 +17,12 @@ def within_distance(
     return cal_distance(lng2, lat2, lng1, lat1) <= distance
 
 
-def points_to_polygon(points: list) -> Polygon:
+def points_to_polygon(points: list) -> str:
     """
     Convert a list of points to a `shapely` polygon.
     """
-    return Polygon(LineString(points))
+    polygon = Polygon(LineString(points))
+    return wkt.dumps(polygon)
 
 
 def wkt_to_geometry(wkt_str: str) -> BaseGeometry:
